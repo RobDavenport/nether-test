@@ -22,8 +22,9 @@ extern "C" {
     pub fn draw_static_mesh(id: i32);
     pub fn draw_static_mesh_indexed(id: i32);
     pub fn draw_sprite(id: i32);
-    pub fn set_texture(id: i32);
-    pub fn load_texture(data_ptr: *const u8, data_len: i32, has_alpha: i32) -> i32;
+    pub fn set_texture(id: i32, layer: i32, blend: i32);
+    pub fn set_matcap(id: i32, layer: i32, blend: i32);
+    pub fn load_texture(data_ptr: *const u8, width: i32, height: i32, has_alpha: i32) -> i32;
     pub fn load_static_mesh(data_ptr: *const u8, data_len: i32, pipeline: i32) -> i32;
     pub fn load_static_mesh_indexed(
         data_ptr: *const u8,
