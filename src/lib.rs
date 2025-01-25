@@ -9,7 +9,7 @@ use camera::Camera;
 mod texture;
 
 use glam::{Mat4, Vec3};
-use texture::{generate_texture, TEXTURE_HEIGHT, TEXTURE_WIDTH};
+use texture::{generate_matcap_bytes, generate_texture, TEXTURE_HEIGHT, TEXTURE_WIDTH};
 
 // X Y Z, R G B
 // const DATA: &[f32] = &[
@@ -33,12 +33,28 @@ const DATA: &[f32] = &[
 ];
 const PIPELINE: i32 = 1;
 
+//X Y Z, NX, NY, NZ
+// const DATA: &[f32] = &[
+//     // Positions (X, Y, Z)   // UVs (U, V)
+//     // Triangle 1 (Top-Left Half)
+//     -2.0, 2.0, 0.0, 0.0, 0.0, 1.0,// Top-left
+//     -2.0, -2.0, 0.0, 0.0, 0.0, 1.0,// Bottom-left
+//     2.0, -2.0, 0.0, 0.0, 0.0, 1.0,// Bottom-right
+//     // Triangle 2 (Top-Right Half)
+//     -2.0, 2.0, 0.0, 0.0, 0.0, 1.0,// Top-left
+//     2.0, -2.0, 0.0, 0.0, 0.0, 1.0,// Bottom-right
+//     2.0, 2.0, 0.0, 0.0, 0.0, 1.0, // Top-right
+// ];
+// const PIPELINE: i32 = 4;
+
+
 struct State {
     camera: Camera,
     proj: Mat4,
     mesh_id: i32,
     t: f32,
     texture_id: i32,
+    matcap_id: i32
 }
 
 thread_local! {
@@ -48,6 +64,7 @@ thread_local! {
         mesh_id: 0,
         t: 0.0,
         texture_id: 0,
+        matcap_id: 0
     });
 }
 
@@ -66,6 +83,15 @@ pub unsafe extern "C" fn init() {
             TEXTURE_WIDTH as i32,
             TEXTURE_HEIGHT as i32,
             1,
+        );
+
+        let matcap = generate_matcap_bytes(256);
+
+        state.matcap_id = load_texture(
+            matcap.as_ptr(),
+            256,
+            256,
+            1
         );
     })
 }
@@ -93,7 +119,7 @@ pub unsafe extern "C" fn draw() {
         let model = Mat4::from_rotation_z(state.t);
         let view = state.camera.get_view();
 
-        set_texture(state.texture_id, 0, 0);
+        set_texture(state.matcap_id, 0, 0);
 
         push_view_matrix_pos(
             &raw const view as *const u8,

@@ -1,5 +1,7 @@
 use std::sync::OnceLock;
 
+use glam::Vec3A;
+
 pub const TEXTURE_WIDTH: usize = 64;
 pub const TEXTURE_HEIGHT: usize = 64;
 
@@ -39,4 +41,63 @@ pub fn generate_texture() -> &'static [u8] {
             data
         })
         .as_slice()
+}
+
+pub fn generate_matcap_bytes(size: u32) -> Vec<u8> {
+    let mut pixels = Vec::with_capacity((size * size * 4) as usize);
+    let center = (size as f32 / 2.0, size as f32 / 2.0);
+    let radius = size as f32 / 2.0;
+
+    for y in 0..size {
+        for x in 0..size {
+            let dx = x as f32 - center.0;
+            let dy = y as f32 - center.1;
+            let distance = (dx * dx + dy * dy).sqrt();
+
+            if distance > radius {
+                pixels.extend(&[0, 0, 0, 0]);
+                continue;
+            }
+
+            // Normalized coordinates (-1 to 1)
+            let nx = dx / radius;
+            let ny = -dy / radius;
+            let nz = (1.0 - nx * nx - ny * ny).sqrt().max(0.0);
+            let normal = Vec3A::new(nx, ny, nz);
+
+            // Base material properties
+            let base_color = Vec3A::new(0.2, 0.3, 0.4);
+            let light_color = Vec3A::new(1.0, 1.0, 1.0);
+            let light_pos = Vec3A::new(0.5, -0.3, 0.8);
+
+            // Lighting calculations
+            let light_dir = (light_pos - normal).normalize();
+            let view_dir = Vec3A::new(0.0, 0.0, 1.0);
+            
+            // Diffuse component with light color
+            let diffuse = normal.dot(light_dir)
+                .max(0.0)
+                .powf(0.5);
+            let diffuse_contrib = light_color * diffuse * 0.4;
+
+            // Specular component with light color
+            let reflect_dir = light_dir.reflect(normal);
+            let specular = reflect_dir.dot(view_dir)
+                .max(0.0)
+                .powf(32.0)
+                * 2.0;
+            let specular_contrib = light_color * specular;
+
+            // Combine all components
+            let final_color = (base_color * 0.8 + diffuse_contrib + specular_contrib)
+                .clamp(Vec3A::ZERO, Vec3A::ONE);
+
+            pixels.push((final_color.x * 255.0) as u8);
+            pixels.push((final_color.y * 255.0) as u8);
+            pixels.push((final_color.z * 255.0) as u8);
+            pixels.push(255);
+        }
+    }
+
+    pixels
 }
