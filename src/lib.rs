@@ -7,6 +7,7 @@ mod camera;
 use camera::Camera;
 
 mod texture;
+mod mesh;
 
 use glam::{Mat4, Vec3};
 use texture::{generate_matcap_bytes, generate_texture, TEXTURE_HEIGHT, TEXTURE_WIDTH};
@@ -54,7 +55,9 @@ struct State {
     mesh_id: i32,
     t: f32,
     texture_id: i32,
-    matcap_id: i32
+    matcap_id: i32,
+    torus_mesh: Vec<f32>,
+    torus_id: i32,
 }
 
 thread_local! {
@@ -64,7 +67,9 @@ thread_local! {
         mesh_id: 0,
         t: 0.0,
         texture_id: 0,
-        matcap_id: 0
+        matcap_id: 0,
+        torus_mesh: mesh::generate_torus(1.5, 0.5, 32, 16),
+        torus_id: 0,
     });
 }
 
@@ -86,6 +91,8 @@ pub unsafe extern "C" fn init() {
         );
 
         let matcap = generate_matcap_bytes(256);
+
+        state.torus_id = load_static_mesh(state.torus_mesh.as_ptr() as *const u8, state.torus_mesh.len() as i32, 4);
 
         state.matcap_id = load_texture(
             matcap.as_ptr(),
@@ -116,7 +123,7 @@ pub unsafe extern "C" fn update() {
 #[no_mangle]
 pub unsafe extern "C" fn draw() {
     STATE.with_borrow(|state| {
-        let model = Mat4::from_rotation_z(state.t);
+        let model = Mat4::from_translation(Vec3::new(0.0, 0.0, -2.0)) * Mat4::from_rotation_z(state.t);
         let view = state.camera.get_view();
 
         set_texture(state.matcap_id, 0, 0);
@@ -129,7 +136,7 @@ pub unsafe extern "C" fn draw() {
 
         push_model_matrix(&raw const IDENT as *const u8);
 
-        draw_static_mesh(state.mesh_id);
+        draw_static_mesh(state.torus_id);
 
         push_model_matrix(&raw const model as *const u8);
         draw_static_mesh(state.mesh_id);

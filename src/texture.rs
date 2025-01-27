@@ -47,57 +47,73 @@ pub fn generate_matcap_bytes(size: u32) -> Vec<u8> {
     let mut pixels = Vec::with_capacity((size * size * 4) as usize);
     let center = (size as f32 / 2.0, size as f32 / 2.0);
     let radius = size as f32 / 2.0;
+    let inv_radius = 1.0 / radius;
 
     for y in 0..size {
         for x in 0..size {
             let dx = x as f32 - center.0;
             let dy = y as f32 - center.1;
-            let distance = (dx * dx + dy * dy).sqrt();
-
-            if distance > radius {
+            let distance_sq = dx * dx + dy * dy;
+            
+            if distance_sq > radius * radius {
                 pixels.extend(&[0, 0, 0, 0]);
                 continue;
             }
 
-            // Normalized coordinates (-1 to 1)
-            let nx = dx / radius;
-            let ny = -dy / radius;
-            let nz = (1.0 - nx * nx - ny * ny).sqrt().max(0.0);
-            let normal = Vec3A::new(nx, ny, nz);
-
-            // Base material properties
-            let base_color = Vec3A::new(0.2, 0.3, 0.4);
-            let light_color = Vec3A::new(1.0, 1.0, 1.0);
-            let light_pos = Vec3A::new(0.5, -0.3, 0.8);
-
-            // Lighting calculations
-            let light_dir = (light_pos - normal).normalize();
-            let view_dir = Vec3A::new(0.0, 0.0, 1.0);
+            // Normalized coordinates with flipped Y
+            let nx = dx * inv_radius;
+            let ny = -dy * inv_radius;
+            let nz = (1.0 - nx * nx - ny * ny).sqrt();
             
-            // Diffuse component with light color
-            let diffuse = normal.dot(light_dir)
-                .max(0.0)
-                .powf(0.5);
-            let diffuse_contrib = light_color * diffuse * 0.4;
+            // Base color with dynamic pattern
+            let angle = nx.atan2(ny) * 2.0;
+            let stripe = (angle * 3.0).sin().signum() * 0.3 + 0.7;
+            let base_color = Vec3A::new(
+                (nx * 5.0).sin().abs() * 0.5 + 0.25,
+                (ny * 5.0).cos().abs() * 0.4 + 0.3,
+                stripe * 0.8
+            );
 
-            // Specular component with light color
-            let reflect_dir = light_dir.reflect(normal);
-            let specular = reflect_dir.dot(view_dir)
-                .max(0.0)
-                .powf(32.0)
-                * 2.0;
-            let specular_contrib = light_color * specular;
+            // Toon shading with stepped lighting
+            let light_dir = Vec3A::new(0.5, -0.5, 0.7).normalize();
+            let diffuse = nx * light_dir.x + ny * light_dir.y + nz * light_dir.z;
+            let toon_diffuse = (diffuse * 4.0).floor() / 4.0;
+            
+            // Sharp specular
+            let reflect_dir = 2.0 * diffuse * Vec3A::new(nx, ny, nz) - light_dir;
+            let specular = reflect_dir.z.max(0.0).powf(32.0).step(0.8);
 
-            // Combine all components
-            let final_color = (base_color * 0.8 + diffuse_contrib + specular_contrib)
-                .clamp(Vec3A::ZERO, Vec3A::ONE);
+            // Rim lighting effect
+            let rim = (1.0 - nz).powi(4) * 0.5;
 
-            pixels.push((final_color.x * 255.0) as u8);
-            pixels.push((final_color.y * 255.0) as u8);
-            pixels.push((final_color.z * 255.0) as u8);
+            // Outline detection
+            let outline = (distance_sq.sqrt() > radius - 2.0) as u8 as f32;
+
+            // Combine all elements
+            let mut color = base_color * (toon_diffuse * 0.8 + 0.3)
+                          + Vec3A::splat(rim) * Vec3A::new(0.8, 0.9, 1.0)
+                          + Vec3A::new(1.0, 0.9, 0.7) * specular;
+            
+            // Apply outline (black border)
+            color = color * (1.0 - outline) + Vec3A::ZERO * outline;
+
+            // Convert to RGBA
+            pixels.push((color.x.min(1.0).max(0.0) * 255.0) as u8);
+            pixels.push((color.y.min(1.0).max(0.0) * 255.0) as u8);
+            pixels.push((color.z.min(1.0).max(0.0) * 255.0) as u8);
             pixels.push(255);
         }
     }
 
     pixels
+}
+
+trait StepExt {
+    fn step(&self, edge: f32) -> f32;
+}
+
+impl StepExt for f32 {
+    fn step(&self, edge: f32) -> f32 {
+        if *self >= edge { 1.0 } else { 0.0 }
+    }
 }
