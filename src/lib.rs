@@ -6,8 +6,8 @@ use api::*;
 mod camera;
 use camera::Camera;
 
-mod texture;
 mod mesh;
+mod texture;
 
 use glam::{Mat4, Vec3};
 use texture::{generate_matcap_bytes, generate_texture, TEXTURE_HEIGHT, TEXTURE_WIDTH};
@@ -48,7 +48,6 @@ const PIPELINE: i32 = 1;
 // ];
 // const PIPELINE: i32 = 4;
 
-
 struct State {
     camera: Camera,
     proj: Mat4,
@@ -58,6 +57,9 @@ struct State {
     matcap_id: i32,
     torus_mesh: Vec<f32>,
     torus_id: i32,
+
+    audio_data: Vec<f32>,
+    audio_t: f32,
 }
 
 thread_local! {
@@ -70,6 +72,8 @@ thread_local! {
         matcap_id: 0,
         torus_mesh: mesh::generate_torus(1.5, 0.5, 32, 16),
         torus_id: 0,
+        audio_data: Vec::new(),
+        audio_t: 0.0,
     });
 }
 
@@ -92,14 +96,13 @@ pub unsafe extern "C" fn init() {
 
         let matcap = generate_matcap_bytes(256);
 
-        state.torus_id = load_static_mesh(state.torus_mesh.as_ptr() as *const u8, state.torus_mesh.len() as i32, 4);
-
-        state.matcap_id = load_texture(
-            matcap.as_ptr(),
-            256,
-            256,
-            1
+        state.torus_id = load_static_mesh(
+            state.torus_mesh.as_ptr() as *const u8,
+            state.torus_mesh.len() as i32,
+            4,
         );
+
+        state.matcap_id = load_texture(matcap.as_ptr(), 256, 256, 1);
     })
 }
 
@@ -117,13 +120,49 @@ pub unsafe extern "C" fn update() {
 
         state.camera.position += forward * analog_left_y(0) * CAM_SPEED;
         state.camera.position += right * analog_left_x(0) * CAM_SPEED;
+
+        let frequency = if button_a_held(0) == 1 {
+            440.0
+        } else if button_b_held(0) == 1 {
+            493.88
+        } else if button_c_held(0) == 1 {
+            261.63
+        } else if button_d_held(0) == 1 {
+            293.66
+        } else {
+            return;
+        };
+
+        state.audio_data.clear();
+
+        const SAMPLE_RATE: usize = 24_000;
+
+        for _ in 0..(SAMPLE_RATE / 60) {
+            // Sine Wave Generation Code
+            state.audio_t += frequency / SAMPLE_RATE as f32;
+
+            // Wrap
+            state.audio_t = state.audio_t.fract();
+
+            // Generate the FM-modulated sine wave sample
+            let v = (state.audio_t * std::f32::consts::TAU).sin();
+            state.audio_data.push(v);
+        }
+
+        push_audio(
+            state.audio_data.as_ptr() as *const u8,
+            state.audio_data.len() as i32,
+            1,
+            SAMPLE_RATE as i32,
+        );
     })
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn draw() {
+pub unsafe extern "C" fn render() {
     STATE.with_borrow(|state| {
-        let model = Mat4::from_translation(Vec3::new(0.0, 0.0, -2.0)) * Mat4::from_rotation_z(state.t);
+        let model =
+            Mat4::from_translation(Vec3::new(0.0, 0.0, -2.0)) * Mat4::from_rotation_z(state.t);
         let view = state.camera.get_view();
 
         set_texture(state.matcap_id, 0, 0);

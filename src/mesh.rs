@@ -7,27 +7,22 @@ pub fn generate_torus(
     minor_segments: usize,
 ) -> Vec<f32> {
     let mut vertices = Vec::new();
-    
+
     // Generate vertex grid
     for i in 0..=major_segments {
         let phi = 2.0 * std::f32::consts::PI * (i as f32) / (major_segments as f32);
         let major_pos = Vec3A::new(phi.cos(), phi.sin(), 0.0);
-        
+
         for j in 0..=minor_segments {
             let theta = 2.0 * std::f32::consts::PI * (j as f32) / (minor_segments as f32);
-            
+
             // Position calculation
-            let minor_pos = Vec3A::new(
-                theta.cos(),
-                theta.sin(),
-                0.0,
-            );
+            let minor_pos = Vec3A::new(theta.cos(), theta.sin(), 0.0);
             let position = major_pos * (major_radius + minor_radius * minor_pos.x)
                 + Vec3A::Z * minor_radius * minor_pos.y;
 
             // Normal calculation (points outward from torus surface)
-            let normal = major_pos * minor_pos.x
-                + Vec3A::Z * minor_pos.y;
+            let normal = major_pos * minor_pos.x + Vec3A::Z * minor_pos.y;
 
             vertices.push((position, normal.normalize()));
         }
@@ -35,7 +30,7 @@ pub fn generate_torus(
 
     // Generate triangles and build output buffer
     let mut output = Vec::with_capacity(major_segments * minor_segments * 6 * 6);
-    
+
     for i in 0..major_segments {
         for j in 0..minor_segments {
             // Get indices for quad vertices
@@ -51,8 +46,7 @@ pub fn generate_torus(
             // Add two triangles per quad
             for &(pos, normal) in &[
                 // First triangle
-                v0, v1, v2,
-                // Second triangle
+                v0, v1, v2, // Second triangle
                 v1, v3, v2,
             ] {
                 output.push(pos.x);

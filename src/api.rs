@@ -6,6 +6,8 @@ extern "C" {
     pub fn fps() -> i32;
     pub fn frame_time() -> f32;
 
+    pub fn push_audio(buffer_ptr: *const u8, buffer_len: i32, channel_count: i32, sample_rate: i32);
+
     // Draw 3d
     pub fn draw_tri_list(data_ptr: *const u8, len: i32, pipeline: i32);
     pub fn draw_tri_list_indexed(
