@@ -48,6 +48,9 @@ const PIPELINE: i32 = 1;
 // ];
 // const PIPELINE: i32 = 4;
 
+const CANTINA: &[u8] = include_bytes!("../CantinaBand3.wav");
+const CANTINA_SAMPLE_RATE: i32 = 22050;
+
 struct State {
     camera: Camera,
     proj: Mat4,
@@ -60,6 +63,9 @@ struct State {
 
     audio_data: Vec<f32>,
     audio_t: f32,
+    song_data: Vec<f32>,
+    song_playhead: usize,
+    song_length: usize,
 }
 
 thread_local! {
@@ -74,11 +80,14 @@ thread_local! {
         torus_id: 0,
         audio_data: Vec::new(),
         audio_t: 0.0,
+        song_data: Vec::new(),
+        song_playhead: 0,
+        song_length: 0,
     });
 }
 
 const CAM_SPEED: f32 = 0.05;
-const ROT_SPEED: f32 = 0.01;
+const ROT_SPEED: f32 = 0.025;
 
 static IDENT: Mat4 = Mat4::IDENTITY;
 
@@ -103,13 +112,27 @@ pub unsafe extern "C" fn init() {
         );
 
         state.matcap_id = load_texture(matcap.as_ptr(), 256, 256, 1);
+
+        let mut wav = hound::WavReader::new(CANTINA).unwrap();
+        let song_data: Vec<f32> = wav
+            .samples::<i16>()
+            .map(|sample| {
+                let sample = sample.unwrap();
+                sample as f32 / 32768.0
+            })
+            .collect();
+        state.song_data.extend(song_data.clone());
+        state.song_length = song_data.len();
+
+        let extra_samples = CANTINA_SAMPLE_RATE / 60;
+        state.song_data.extend_from_slice(&song_data[0..extra_samples as usize]);
     })
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn update() {
     STATE.with_borrow_mut(|state| {
-        state.t += 0.01;
+        state.t += 0.05;
 
         state.camera.pitch += analog_right_y(0) * ROT_SPEED;
         state.camera.yaw += analog_right_x(0) * ROT_SPEED;
@@ -120,6 +143,13 @@ pub unsafe extern "C" fn update() {
 
         state.camera.position += forward * analog_left_y(0) * CAM_SPEED;
         state.camera.position += right * analog_left_x(0) * CAM_SPEED;
+
+        let samples = (CANTINA_SAMPLE_RATE / 60) + 1;
+        push_audio(state.song_data[state.song_playhead..].as_ptr() as *const u8, samples, 1, CANTINA_SAMPLE_RATE as i32);
+        state.song_playhead += samples as usize;
+        state.song_playhead %= state.song_length;
+
+        state.audio_data.clear();
 
         let frequency = if button_a_held(0) == 1 {
             440.0
@@ -133,9 +163,7 @@ pub unsafe extern "C" fn update() {
             return;
         };
 
-        state.audio_data.clear();
-
-        const SAMPLE_RATE: usize = 24_000;
+        const SAMPLE_RATE: usize = 48_000;
 
         for _ in 0..(SAMPLE_RATE / 60) {
             // Sine Wave Generation Code
