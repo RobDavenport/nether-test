@@ -126,6 +126,13 @@ pub unsafe extern "C" fn init() {
 
         let extra_samples = CANTINA_SAMPLE_RATE / 60;
         state.song_data.extend_from_slice(&song_data[0..extra_samples as usize]);
+
+        let text = "Hello From Nethercade Test!";
+        console_log(text.as_ptr(), text.len() as i32);
+
+        let random_number = random_int_range(0, 100);
+        let random_text = format!("Random number: {random_number}");
+        console_log(random_text.as_ptr(), random_text.len() as i32);
     })
 }
 

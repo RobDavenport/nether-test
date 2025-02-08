@@ -116,4 +116,13 @@ extern "C" {
     pub fn raw_input_state(player_id: i32) -> i64;
     pub fn raw_mouse_state(player_id: i32) -> i64;
 
+    // Text
+    pub fn console_log(text_ptr: *const u8, len: i32);
+    pub fn console_log_utf16(text_ptr: *const u8, len: i32);
+
+    // Random
+    pub fn set_seed(seed: i32);
+    pub fn random_int_range(min: i32, max: i32) -> i32;
+    pub fn random_float() -> f32;
+    pub fn random_float_range(min: f32, max: f32) -> f32;
 }
