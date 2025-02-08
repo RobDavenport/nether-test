@@ -151,13 +151,13 @@ pub unsafe extern "C" fn update() {
 
         state.audio_data.clear();
 
-        let frequency = if button_a_held(0) == 1 {
+        let frequency = if button_a_held(1) == 1 {
             440.0
-        } else if button_b_held(0) == 1 {
+        } else if button_b_held(1) == 1 {
             493.88
-        } else if button_c_held(0) == 1 {
+        } else if button_c_held(1) == 1 {
             261.63
-        } else if button_d_held(0) == 1 {
+        } else if button_d_held(1) == 1 {
             293.66
         } else {
             return;
