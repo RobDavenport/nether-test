@@ -17,7 +17,6 @@ extern "C" {
         index_len: i32,
         pipeline: i32,
     );
-    pub fn push_light(light_ptr: *const u8);
     pub fn push_model_matrix(mat_ptr: *const u8);
     pub fn push_proj_matrix(proj_ptr: *const u8);
     pub fn push_view_matrix_pos(view_ptr: *const u8, pos_ptr: *const u8);
